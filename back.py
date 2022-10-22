@@ -8,6 +8,8 @@ app = FastAPI()
 
 store = {}
 
+removing_mode = False
+
 def make_err(msg):
     return { 'error': 1, 'msg': msg }
 def make_res(data):
@@ -32,15 +34,19 @@ async def endpoint(websocket: WebSocket):
 
 @app.get('/add/{item_id}')
 def add(item_id):
-    if item_id not in store:
-        store[item_id] = queue.Queue()
-    store[item_id].put(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    return make_res(f'{item_id} is added')
-
-@app.get('/remove/{item_id}')
-def remove(item_id):
-    if item_id in store and not store[item_id].empty():
-        store[item_id].get()
+    if removing_mode:
+        if item_id in store and not store[item_id].empty():
+            store[item_id].get()
+        else:
+            return make_err('no such item')
+        return make_res(f'{item_id} is removed')
     else:
-        return make_err('no such item')
-    return make_res(f'{item_id} is removed')
+        if item_id not in store:
+            store[item_id] = queue.Queue()
+        store[item_id].put(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        return make_res(f'{item_id} is added')
+
+@app.get('/switch')
+def switch():
+    global removing_mode
+    removing_mode = not removing_mode
